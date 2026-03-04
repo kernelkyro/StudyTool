@@ -80,11 +80,13 @@ const countdown = setInterval(function() {
     }
 },1000);
 </script>
-
-<!-- FIREBASE TOTAL + SUBJECT BREAKDOWN -->
+ 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { initializeApp } from 
+"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+
+import { getFirestore, collection, getDocs } from 
+"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyCzKl7JcSA74VUKlObhzeATfNjmqHoeKoo",
@@ -98,14 +100,13 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// UNIQUE USER LOGIC
+// Unique user ID
 let userId = localStorage.getItem("study_uid");
 if (!userId) {
     userId = "user_" + Math.random().toString(36).substr(2,9);
     localStorage.setItem("study_uid", userId);
 }
 
-// Friendly names for all subjects
 const SUBJECT_NAMES = {
     physics: "Physics 1st Paper",
     physics2: "Physics 2nd Paper",
@@ -122,58 +123,88 @@ const SUBJECT_NAMES = {
     ict: "ICT"
 };
 
+// Update these with real totals if needed
+const SUBJECT_TOTALS = {
+    math: 6, 
+    math2: 6,
+    physics: 6,
+    physics2: 7,
+    chemistry: 4,
+    chemistry2: 4,
+    biology: 7,
+    biology2: 7,
+    english: 10,
+    english2: 12,
+    bangla: 15,
+    bangla2: 12,
+    ict: 5
+};
+
 async function calculateTotalProgress() {
     const totalBar = document.getElementById('total-bar');
     const totalText = document.getElementById('total-text');
     const subjectList = document.getElementById('subject-list');
 
-    const TOTAL_CHAPTERS = 101;
-
-    if(!userId) {
-        totalText.innerText = "Start by checking a chapter first.";
-        return;
-    }
+    const GRAND_TOTAL_CHAPTERS = Object.values(SUBJECT_TOTALS)
+        .reduce((a, b) => a + b, 0);
 
     try {
         const chaptersRef = collection(db, "user_progress", userId, "chapters");
         const querySnapshot = await getDocs(chaptersRef);
 
         let completedCount = 0;
-        let subjectData = {};
+        let userCompletedBySubject = {};
 
+        // Initialize subject counts
+        for (const key in SUBJECT_TOTALS) {
+            userCompletedBySubject[key] = 0;
+        }
+
+        // Count completed chapters
         querySnapshot.forEach(docSnap => {
             const data = docSnap.data();
             const id = docSnap.id;
-            const subject = id.split("-")[0];
+            const subjectKey = id.split("-")[0];
 
-            if(!subjectData[subject]) {
-                subjectData[subject] = { total: 0, completed: 0 };
-            }
-
-            subjectData[subject].total++;
-            if(data.status === true) {
+            if (data.status === true) {
                 completedCount++;
-                subjectData[subject].completed++;
+                if (userCompletedBySubject.hasOwnProperty(subjectKey)) {
+                    userCompletedBySubject[subjectKey]++;
+                }
             }
         });
 
-        // Total progress
-        const percentage = Math.round((completedCount / TOTAL_CHAPTERS) * 100);
-        totalBar.style.width = percentage + "%";
-        totalText.innerText = `Total Progress: ${percentage}% (${completedCount}/${TOTAL_CHAPTERS})`;
+        // Update total progress bar safely
+        const totalPercentage = GRAND_TOTAL_CHAPTERS === 0 
+            ? 0 
+            : Math.round((completedCount / GRAND_TOTAL_CHAPTERS) * 100);
 
-        // Subject-wise breakdown
+        totalBar.style.width = totalPercentage + "%";
+        totalText.innerText = 
+            `Total Progress: ${totalPercentage}% (${completedCount}/${GRAND_TOTAL_CHAPTERS})`;
+
+        // Update subject breakdown
         subjectList.innerHTML = "";
-        for(const subject in subjectData) {
-            const s = subjectData[subject];
-            const subjectPercent = s.total === 0 ? 0 : Math.round((s.completed / s.total) * 100);
+
+        for (const key in SUBJECT_TOTALS) {
+            const completed = userCompletedBySubject[key];
+            const total = SUBJECT_TOTALS[key];
+
+            const percent = total === 0 
+                ? 0 
+                : Math.round((completed / total) * 100);
+
             const div = document.createElement("div");
             div.style.marginBottom = "8px";
-            div.innerHTML = `<strong>${SUBJECT_NAMES[subject] || subject.toUpperCase()}</strong>: ${s.completed}/${s.total} (${subjectPercent}%)`;
+            div.innerHTML = `
+                <strong>${SUBJECT_NAMES[key] || key}</strong>: 
+                ${completed}/${total} (${percent}%)
+            `;
+
             subjectList.appendChild(div);
         }
 
-    } catch(error) {
+    } catch (error) {
         console.error("FIREBASE ERROR:", error);
         totalText.innerText = "Error loading data.";
     }
@@ -181,5 +212,6 @@ async function calculateTotalProgress() {
 
 calculateTotalProgress();
 </script>
+
 </body>
 </html>
